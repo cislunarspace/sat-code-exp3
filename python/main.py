@@ -28,13 +28,16 @@ def read_planning_events(path: Path | None = None) -> list[list[float]]:
     """
     workbook_path = path or ROOT_DIR / "data" / "planningevents.xlsx"
     workbook = load_workbook(workbook_path, data_only=True, read_only=True)
-    sheet = workbook.active
-    rows: list[list[float]] = []
-    for row in sheet.iter_rows(min_row=2, values_only=True):
-        if row is None or row[0] is None:
-            continue
-        rows.append([float(value) for value in row[:5]])
-    return rows
+    try:
+        sheet = workbook.active
+        rows: list[list[float]] = []
+        for row in sheet.iter_rows(min_row=2, values_only=True):
+            if row is None or row[0] is None:
+                continue
+            rows.append([float(value) for value in row[:5]])
+        return rows
+    finally:
+        workbook.close()
 
 
 def main() -> tuple[bool, bool]:

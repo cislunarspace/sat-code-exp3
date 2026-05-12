@@ -76,15 +76,15 @@ def read_avoid_area_windows(path: Path | None = None) -> list[tuple[float, float
     if not rows:
         return []
 
-    first_start = parse_datetime(rows[0]["开始时间"])
+    starts = [parse_datetime(row["开始时间"]) for row in rows]
+    base_day = min(starts).replace(hour=0, minute=0, second=0, microsecond=0)
     windows: list[tuple[float, float]] = []
-    for row in rows:
-        start_at = parse_datetime(row["开始时间"])
+    for row, start_at in zip(rows, starts):
         duration_minutes = float(row["持续时间 (min)"].strip())
-        start_seconds = (start_at - first_start.replace(hour=0, minute=0, second=0, microsecond=0)).total_seconds()
+        start_seconds = (start_at - base_day).total_seconds()
         end_seconds = start_seconds + duration_minutes * 60
         windows.append((start_seconds, end_seconds))
-    return windows
+    return sorted(windows)
 
 
 def read_solar_angles(path: Path | None = None) -> list[tuple[float, float]]:

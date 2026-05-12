@@ -3,10 +3,11 @@ from __future__ import annotations
 import csv
 from pathlib import Path
 
+import main as planning_main
+from src import data_io
 from src.JudgeAvoidAreaClash import JudgeAvoidAreaClash
 from src.JudgeSolarClash import JudgeSolarClash
 from src.JudgeWelecClash import JudgeWelecClash
-from src import data_io
 from src.data_io import find_csv_by_headers, read_avoid_area_windows, read_solar_angles
 
 
@@ -97,6 +98,36 @@ def test_judge_avoid_area_clash_detects_overlap(tmp_path: Path) -> None:
     assert JudgeAvoidAreaClash([[1, 1300, 1400, 0, 20]], avoid_path) is False
 
 
+# 验证异常区窗口即使在 CSV 中乱序，也不会漏报后续重叠窗口。
+def test_judge_avoid_area_clash_handles_unsorted_windows(tmp_path: Path) -> None:
+    avoid_path = tmp_path / "avoid.csv"
+    write_csv(
+        avoid_path,
+        [
+            ["", "开始时间", "结束时间", "持续时间 (min)"],
+            [1, "2021-10-02 01:00:00", "2021-10-02 01:10:00", 10],
+            [2, "2021-10-02 00:10:00", "2021-10-02 00:20:00", 10],
+        ],
+    )
+
+    assert JudgeAvoidAreaClash([[1, 500, 700, 0, 20]], avoid_path) is True
+
+
+# 验证异常区窗口即使跨天乱序，也以最早窗口日期作为相对时间基准。
+def test_read_avoid_area_windows_uses_earliest_day_for_unsorted_rows(tmp_path: Path) -> None:
+    avoid_path = tmp_path / "avoid.csv"
+    write_csv(
+        avoid_path,
+        [
+            ["", "开始时间", "结束时间", "持续时间 (min)"],
+            [1, "2021-10-03 00:10:00", "2021-10-03 00:20:00", 10],
+            [2, "2021-10-02 23:50:00", "2021-10-03 00:00:00", 10],
+        ],
+    )
+
+    assert read_avoid_area_windows(avoid_path) == [(85800.0, 86400.0), (87000.0, 87600.0)]
+
+
 # 验证任务期间太阳 Beta 角低于阈值时会判定冲突。
 def test_judge_solar_clash_detects_angle_violation(tmp_path: Path) -> None:
     solar_path = tmp_path / "solar.csv"
@@ -126,6 +157,45 @@ def test_judge_solar_clash_detects_uncovered_event_tail(tmp_path: Path) -> None:
     )
 
     assert JudgeSolarClash([[1, 28000, 30000, 0, 40]], solar_path) is True
+
+
+# 验证任务头段早于太阳角数据覆盖范围时按冲突处理。
+def test_judge_solar_clash_detects_uncovered_event_head(tmp_path: Path) -> None:
+    solar_path = tmp_path / "solar.csv"
+    write_csv(
+        solar_path,
+        [
+            ["Time (LCLG)", "Beta Angle (deg)"],
+            ["2021/10/2 1:00", 0],
+            ["2021/10/2 8:00", 10],
+        ],
+    )
+
+    assert JudgeSolarClash([[1, 0, 4000, 0, 40]], solar_path) is True
+
+
+# 验证读取规划事件后会关闭 Excel workbook。
+def test_read_planning_events_closes_workbook(monkeypatch) -> None:
+    class FakeSheet:
+        def iter_rows(self, min_row: int, values_only: bool):
+            assert min_row == 2
+            assert values_only is True
+            return iter([(1, 2, 3, 4, 5)])
+
+    class FakeWorkbook:
+        active = FakeSheet()
+
+        def __init__(self) -> None:
+            self.is_closed = False
+
+        def close(self) -> None:
+            self.is_closed = True
+
+    fake_workbook = FakeWorkbook()
+    monkeypatch.setattr(planning_main, "load_workbook", lambda *args, **kwargs: fake_workbook)
+
+    assert planning_main.read_planning_events(Path("planningevents.xlsx")) == [[1.0, 2.0, 3.0, 4.0, 5.0]]
+    assert fake_workbook.is_closed is True
 
 
 # 验证未移植的测控约束算法会明确抛出未实现错误。

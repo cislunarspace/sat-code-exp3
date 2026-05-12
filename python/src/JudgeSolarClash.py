@@ -68,20 +68,21 @@ def JudgeSolarClash(PlanningEvents: list[list[float]], solar_angle_path: Path | 
 
     Python 版本不再假设相邻阳光角采样一定相隔 86400 秒，而是按 CSV 中实际
     时间形成分段，并对事件与每个分段的重叠部分做线性插值。只要某个事件的
-    任一重叠角度范围超出允许区间，或事件时间超出最后一个阳光角采样点，
+    任一重叠角度范围超出允许区间，或事件时间超出阳光角采样覆盖范围，
     即返回 True；全部事件均满足约束时返回 False。
     """
     solar_angles = read_solar_angles(solar_angle_path)
     if len(solar_angles) < 2:
         return bool(PlanningEvents)
 
+    first_time = solar_angles[0][1]
     last_time = solar_angles[-1][1]
     for event in PlanningEvents:
         event_start = float(event[1])
         event_end = float(event[2])
         min_angle = float(event[3])
         max_angle = float(event[4])
-        if event_start > last_time or event_end > last_time:
+        if event_start < first_time or event_end > last_time:
             return True
 
         for (start_angle, segment_start), (end_angle, segment_end) in zip(solar_angles, solar_angles[1:]):
