@@ -8,17 +8,14 @@
 
 from __future__ import annotations
 
-from datetime import timedelta
 from pathlib import Path
 
 from src.JudgeAvoidAreaClash import JudgeAvoidAreaClash
 from src.JudgeSolarClash import JudgeSolarClash
 from src.JudgeWelecClash import JudgeWelecClash
+from src.models import Task
 from src.plot import ensure_output_dir, format_bjt, generate_power_chart, generate_priority_chart, generate_timeline_chart
-from src.scheduler import Task, schedule_tasks
-from src.solar_angle import BASE_TIME
-
-ROOT_DIR = Path(__file__).resolve().parents[1]
+from src.scheduler import schedule_tasks
 
 
 def save_schedule_csv(schedule: dict[int, float], tasks: list[Task], output_path: Path | None = None) -> Path:

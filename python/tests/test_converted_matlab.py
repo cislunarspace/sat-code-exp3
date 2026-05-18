@@ -3,12 +3,11 @@ from __future__ import annotations
 import csv
 from pathlib import Path
 
-import main as planning_main
-from src import data_io
 from src.JudgeAvoidAreaClash import JudgeAvoidAreaClash
 from src.JudgeSolarClash import JudgeSolarClash
 from src.JudgeWelecClash import JudgeWelecClash
 from src.data_io import find_csv_by_headers, read_avoid_area_windows, read_solar_angles
+from src.models import Task
 
 
 def write_csv(path: Path, rows: list[list[object]]) -> None:
@@ -17,7 +16,24 @@ def write_csv(path: Path, rows: list[list[object]]) -> None:
         writer.writerows(rows)
 
 
-# 验证规避区域窗口读取逻辑只依赖表头，不依赖文件名。
+def make_task(
+    task_id: int,
+    duration: int,
+    power: int = 100,
+    min_angle: float = 0,
+    max_angle: float = 20,
+    priority: int = 1,
+) -> Task:
+    return Task(
+        id=task_id,
+        duration=duration,
+        power=power,
+        min_angle=min_angle,
+        max_angle=max_angle,
+        priority=priority,
+    )
+
+
 def test_reads_avoid_area_windows_by_headers(tmp_path: Path) -> None:
     avoid_path = tmp_path / "misnamed_solar.csv"
     write_csv(
@@ -33,7 +49,6 @@ def test_reads_avoid_area_windows_by_headers(tmp_path: Path) -> None:
     assert windows == [(53220.0, 53940.0)]
 
 
-# 验证太阳角读取逻辑按表头识别数据，并把时间转换为相对秒数。
 def test_reads_solar_angles_by_headers(tmp_path: Path) -> None:
     solar_path = tmp_path / "misnamed_avoid.csv"
     write_csv(
@@ -50,7 +65,6 @@ def test_reads_solar_angles_by_headers(tmp_path: Path) -> None:
     assert solar_angles == [(0.0, 0.0), (22.5, 28800.0)]
 
 
-# 验证真实数据目录中能通过表头找到对应 CSV 文件。
 def test_find_csv_by_headers_detects_data_files() -> None:
     solar_path = find_csv_by_headers({"Time (LCLG)", "Beta Angle (deg)"})
     avoid_path = find_csv_by_headers({"开始时间", "持续时间 (min)"})
@@ -59,7 +73,6 @@ def test_find_csv_by_headers_detects_data_files() -> None:
     assert avoid_path.name == "AvoidAeraWindow.csv"
 
 
-# 验证表头匹配到多个 CSV 时会显式报错，避免静默选错数据源。
 def test_find_csv_by_headers_rejects_ambiguous_matches(tmp_path: Path) -> None:
     for name in ("a.csv", "b.csv"):
         write_csv(
@@ -70,20 +83,14 @@ def test_find_csv_by_headers_rejects_ambiguous_matches(tmp_path: Path) -> None:
             ],
         )
 
-    original_data_dir = data_io.DATA_DIR
-    data_io.DATA_DIR = tmp_path
     try:
-        try:
-            find_csv_by_headers({"Time (LCLG)", "Beta Angle (deg)"})
-        except ValueError as exc:
-            assert "Multiple CSV files" in str(exc)
-        else:
-            raise AssertionError("ambiguous CSV files should raise ValueError")
-    finally:
-        data_io.DATA_DIR = original_data_dir
+        find_csv_by_headers({"Time (LCLG)", "Beta Angle (deg)"}, tmp_path)
+    except ValueError as exc:
+        assert "Multiple CSV files" in str(exc)
+    else:
+        raise AssertionError("ambiguous CSV files should raise ValueError")
 
 
-# 验证任务时间窗与规避区域窗口重叠时会判定冲突。
 def test_judge_avoid_area_clash_detects_overlap(tmp_path: Path) -> None:
     avoid_path = tmp_path / "avoid.csv"
     write_csv(
@@ -94,11 +101,12 @@ def test_judge_avoid_area_clash_detects_overlap(tmp_path: Path) -> None:
         ],
     )
 
-    assert JudgeAvoidAreaClash([[1, 500, 700, 0, 20]], avoid_path) is True
-    assert JudgeAvoidAreaClash([[1, 1300, 1400, 0, 20]], avoid_path) is False
+    tasks = [make_task(1, 200)]
+
+    assert JudgeAvoidAreaClash({1: 500}, tasks, avoid_path) is True
+    assert JudgeAvoidAreaClash({1: 1300}, tasks, avoid_path) is False
 
 
-# 验证异常区窗口即使在 CSV 中乱序，也不会漏报后续重叠窗口。
 def test_judge_avoid_area_clash_handles_unsorted_windows(tmp_path: Path) -> None:
     avoid_path = tmp_path / "avoid.csv"
     write_csv(
@@ -110,10 +118,9 @@ def test_judge_avoid_area_clash_handles_unsorted_windows(tmp_path: Path) -> None
         ],
     )
 
-    assert JudgeAvoidAreaClash([[1, 500, 700, 0, 20]], avoid_path) is True
+    assert JudgeAvoidAreaClash({1: 500}, [make_task(1, 200)], avoid_path) is True
 
 
-# 验证异常区窗口即使跨天乱序，也以最早窗口日期作为相对时间基准。
 def test_read_avoid_area_windows_uses_earliest_day_for_unsorted_rows(tmp_path: Path) -> None:
     avoid_path = tmp_path / "avoid.csv"
     write_csv(
@@ -128,7 +135,6 @@ def test_read_avoid_area_windows_uses_earliest_day_for_unsorted_rows(tmp_path: P
     assert read_avoid_area_windows(avoid_path) == [(85800.0, 86400.0), (87000.0, 87600.0)]
 
 
-# 验证任务期间太阳 Beta 角低于阈值时会判定冲突。
 def test_judge_solar_clash_detects_angle_violation(tmp_path: Path) -> None:
     solar_path = tmp_path / "solar.csv"
     write_csv(
@@ -140,11 +146,10 @@ def test_judge_solar_clash_detects_angle_violation(tmp_path: Path) -> None:
         ],
     )
 
-    assert JudgeSolarClash([[1, 0, 28800, 0, 20]], solar_path) is True
-    assert JudgeSolarClash([[1, 0, 28800, 0, 40]], solar_path) is False
+    assert JudgeSolarClash({1: 0}, [make_task(1, 28800, min_angle=0, max_angle=20)], solar_path) is True
+    assert JudgeSolarClash({1: 0}, [make_task(1, 28800, min_angle=0, max_angle=40)], solar_path) is False
 
 
-# 验证太阳角约束按有符号上下界解释，负区间不能由正角度满足。
 def test_judge_solar_clash_treats_signed_ranges_literally(tmp_path: Path) -> None:
     solar_path = tmp_path / "solar.csv"
     write_csv(
@@ -156,11 +161,10 @@ def test_judge_solar_clash_treats_signed_ranges_literally(tmp_path: Path) -> Non
         ],
     )
 
-    assert JudgeSolarClash([[1, 0, 28800, -20, -2]], solar_path) is True
-    assert JudgeSolarClash([[1, 0, 28800, 2, 20]], solar_path) is False
+    assert JudgeSolarClash({1: 0}, [make_task(1, 28800, min_angle=-20, max_angle=-2)], solar_path) is True
+    assert JudgeSolarClash({1: 0}, [make_task(1, 28800, min_angle=2, max_angle=20)], solar_path) is False
 
 
-# 验证负太阳角数据可以满足负向任务约束。
 def test_judge_solar_clash_accepts_negative_signed_ranges(tmp_path: Path) -> None:
     solar_path = tmp_path / "solar.csv"
     write_csv(
@@ -172,10 +176,9 @@ def test_judge_solar_clash_accepts_negative_signed_ranges(tmp_path: Path) -> Non
         ],
     )
 
-    assert JudgeSolarClash([[1, 0, 28800, -20, -2]], solar_path) is False
+    assert JudgeSolarClash({1: 0}, [make_task(1, 28800, min_angle=-20, max_angle=-2)], solar_path) is False
 
 
-# 验证任务尾段超出太阳角数据覆盖范围时按冲突处理。
 def test_judge_solar_clash_detects_uncovered_event_tail(tmp_path: Path) -> None:
     solar_path = tmp_path / "solar.csv"
     write_csv(
@@ -187,10 +190,9 @@ def test_judge_solar_clash_detects_uncovered_event_tail(tmp_path: Path) -> None:
         ],
     )
 
-    assert JudgeSolarClash([[1, 28000, 30000, 0, 40]], solar_path) is True
+    assert JudgeSolarClash({1: 28000}, [make_task(1, 2000, min_angle=0, max_angle=40)], solar_path) is True
 
 
-# 验证任务头段早于太阳角数据覆盖范围时按冲突处理。
 def test_judge_solar_clash_detects_uncovered_event_head(tmp_path: Path) -> None:
     solar_path = tmp_path / "solar.csv"
     write_csv(
@@ -202,66 +204,78 @@ def test_judge_solar_clash_detects_uncovered_event_head(tmp_path: Path) -> None:
         ],
     )
 
-    assert JudgeSolarClash([[1, 0, 4000, 0, 40]], solar_path) is True
+    assert JudgeSolarClash({1: 0}, [make_task(1, 4000, min_angle=0, max_angle=40)], solar_path) is True
 
 
-# 验证读取规划事件 CSV 能正确解析数据并跳过表头。
-def test_read_planning_events_parses_csv(tmp_path: Path) -> None:
-    csv_path = tmp_path / "planningevents.csv"
-    write_csv(
-        csv_path,
-        [
-            ["事件ID", "StartTime", "EndTime", "MinAngle", "MaxAngle"],
-            [1, 10, 20, 0, 23],
-            [2, 30, 40, 5, 25],
-        ],
-    )
-
-    result = planning_main.read_planning_events(csv_path)
-    assert result == [[1.0, 10.0, 20.0, 0.0, 23.0], [2.0, 30.0, 40.0, 5.0, 25.0]]
-
-
-# 验证功率约束检查：单任务功率低于上限时不应冲突。
 def test_judge_welec_clash_no_conflict_for_low_power() -> None:
-    # Task 1 in event.xlsx has power 200W, well below 1000W
-    result = JudgeWelecClash([[1, 0, 3600]])
+    result = JudgeWelecClash({1: 0}, [make_task(1, 3600, power=200)])
     assert result is False
 
 
-# 验证功率约束检查：并发任务总功率超过 1000W 时应判定冲突。
 def test_judge_welec_clash_detects_power_overflow() -> None:
-    # Task 13 (800W) + Task 49 (800W) overlapping → 1600W > 1000W
-    result = JudgeWelecClash([
-        [13, 0, 3600],
-        [49, 0, 3600],
-    ])
+    result = JudgeWelecClash(
+        {13: 0, 49: 0},
+        [make_task(13, 3600, power=800), make_task(49, 3600, power=800)],
+    )
     assert result is True
 
 
-# 验证功率约束检查：并发任务总功率恰好等于上限时不应冲突。
 def test_judge_welec_clash_allows_exact_limit() -> None:
-    # Task 13 (800W) + Task 1 (200W) = 1000W exactly
-    result = JudgeWelecClash([
-        [13, 0, 3600],
-        [1, 0, 3600],
-    ])
+    result = JudgeWelecClash(
+        {13: 0, 1: 0},
+        [make_task(13, 3600, power=800), make_task(1, 3600, power=200)],
+    )
     assert result is False
 
 
-# 验证未知任务 ID 不能被当作 0W 静默通过。
 def test_judge_welec_clash_rejects_unknown_task_id() -> None:
     try:
-        JudgeWelecClash([[999, 0, 3600]])
+        JudgeWelecClash({999: 0}, [make_task(1, 3600)])
     except KeyError as exc:
-        assert "Unknown task ID" in str(exc)
+        assert "999" in str(exc)
     else:
         raise AssertionError("unknown task ID should raise KeyError")
 
 
-# 验证首尾相接的任务不会被错误地当作同时运行。
 def test_judge_welec_clash_allows_back_to_back_tasks_at_limit() -> None:
-    result = JudgeWelecClash([
-        [13, 0, 3600],
-        [49, 3600, 7200],
-    ])
+    result = JudgeWelecClash(
+        {13: 0, 49: 3600},
+        [make_task(13, 3600, power=800), make_task(49, 3600, power=800)],
+    )
     assert result is False
+
+
+def test_power_tracker_matches_sweep_algorithm() -> None:
+    """交叉验证：PowerTracker 和事件扫描算法对相同输入判定一致。"""
+    from src.power_check import check_power_overflow
+    from src.scheduler import PowerTracker
+
+    tasks = [make_task(1, 3600, power=600), make_task(2, 3600, power=600)]
+
+    # 场景 A：两任务不重叠 → 均应返回 False
+    schedule_a = {1: 0, 2: 3600}
+    tracker_a = PowerTracker()
+    for t in tasks:
+        tracker_a.place(schedule_a[t.id], t.duration, t.power)
+    sweep_a = check_power_overflow(schedule_a, tasks)
+    tracker_a_overflow = bool((tracker_a.timeline > 1000).any())
+    assert sweep_a == tracker_a_overflow == False
+
+    # 场景 B：两任务重叠 → 均应返回 True
+    schedule_b = {1: 0, 2: 0}
+    sweep_b = check_power_overflow(schedule_b, tasks)
+    tracker_b = PowerTracker()
+    tracker_b.place(0, 3600, 600)
+    tracker_b.place(0, 3600, 600)
+    tracker_b_ok = bool((tracker_b.timeline > 1000).any())
+    assert sweep_b == tracker_b_ok == True
+
+    # 场景 C：总功率恰好等于上限 → 均应返回 False
+    schedule_c = {1: 0, 2: 0}
+    tasks_c = [make_task(1, 3600, power=600), make_task(2, 3600, power=400)]
+    sweep_c = check_power_overflow(schedule_c, tasks_c)
+    tracker_c = PowerTracker()
+    tracker_c.place(0, 3600, 600)
+    tracker_c.place(0, 3600, 400)
+    tracker_c_overflow = bool((tracker_c.timeline > 1000).any())
+    assert sweep_c == tracker_c_overflow == False
