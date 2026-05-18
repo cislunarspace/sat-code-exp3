@@ -6,40 +6,36 @@
 
 from __future__ import annotations
 
+import csv
 from pathlib import Path
-
-from openpyxl import load_workbook
 
 MAX_POWER = 1000  # W
 
 
 def _read_event_powers(path: Path | None = None) -> dict[int, int]:
-    """从 event.xlsx 读取每个任务 ID 对应的功率（W）。
+    """从 event.csv 读取每个任务 ID 对应的功率（W）。
 
-    默认在 ``data`` 目录下查找包含 ``电能`` 和 ``任务ID`` 表头的 Excel 文件。
+    默认读取 ``data/event.csv``。第 1 列为任务 ID，第 3 列为功率（W）。
     """
     if path is None:
         from .data_io import ROOT_DIR
 
-        candidate = ROOT_DIR / "data" / "event.xlsx"
+        candidate = ROOT_DIR / "data" / "event.csv"
         if not candidate.exists():
-            raise FileNotFoundError(f"Cannot find event.xlsx under {ROOT_DIR / 'data'}")
+            raise FileNotFoundError(f"Cannot find event.csv under {ROOT_DIR / 'data'}")
         path = candidate
 
-    workbook = load_workbook(path, data_only=True, read_only=True)
-    try:
-        sheet = workbook.active
-        rows = list(sheet.iter_rows(min_row=2, values_only=True))
+    with open(path, newline="", encoding="utf-8-sig") as f:
+        reader = csv.reader(f)
+        next(reader)  # skip header
         powers: dict[int, int] = {}
-        for row in rows:
-            if row is None or row[0] is None:
+        for row in reader:
+            if not row or not row[0]:
                 continue
             tid = int(row[0])
             power = int(row[2])
             powers[tid] = power
         return powers
-    finally:
-        workbook.close()
 
 
 def JudgeWelecClash(
@@ -54,7 +50,7 @@ def JudgeWelecClash(
     PlanningEvents :
         规划事件矩阵，每行至少包含 ``[任务ID, 相对开始时间(秒), 相对结束时间(秒), ...]``。
     events_path :
-        任务定义 Excel 文件路径（含功率列）。默认读取 ``data/event.xlsx``。
+        任务定义 CSV 文件路径（含功率列）。默认读取 ``data/event.csv``。
     max_power :
         功率上限（W），默认 1000W。
 
