@@ -1,5 +1,47 @@
 # 作业三
 
+## 快速开始
+
+本项目使用 [uv](https://docs.astral.sh/uv/) 管理 Python 依赖，需要 Python >= 3.12。
+
+```bash
+uv sync                # 安装依赖（自动创建 .venv）
+uv run python main.py  # 运行调度程序
+```
+
+运行结束后，`output/` 目录下会生成：
+
+- `schedule.csv` — 任务安排表
+- `power_chart.png` — 功率需求变化图
+- `timeline_chart.png` — 任务时间安排图
+- `priority_chart.png` — 任务优先级安排图
+- `report.md` — 完整实验报告
+
+## 项目结构
+
+```
+Planning/
+├── main.py                # 入口脚本，启动调度程序
+├── pyproject.toml         # 项目依赖配置
+├── python/
+│   ├── main.py            # 主流程：读取数据 → 调度 → 验证 → 生成报告
+│   ├── src/
+│   │   ├── scheduler.py   # 贪心调度核心（优先级降序 + 约束检查）
+│   │   ├── solar_angle.py # 三次样条阳光角插值模型
+│   │   ├── data_io.py     # CSV 数据读取与解析
+│   │   ├── report.py      # 图表与 Markdown 报告生成
+│   │   ├── JudgeAvoidAreaClash.py  # 地磁异常区约束验证
+│   │   ├── JudgeSolarClash.py      # 阳光角约束验证
+│   │   ├── JudgeWelecClash.py      # 功率约束验证
+│   │   └── relativetimetodata.py   # 时间转换工具
+│   └── tests/             # 单元测试
+├── data/                  # 输入数据（任务列表、异常区窗口、阳光角）
+├── output/                # 程序生成的调度结果
+└── figures/               # 实验要求中的参考图
+```
+
+**程序流程：** `main.py` → 读取 `data/` 中的任务与约束数据 → 贪心调度 → 约束验证 → 输出到 `output/`
+
 ## 实验目的
 
 通过本实验，使学员学会进行简单航天任务规划的能力，加深对地面系统及飞行任务运营的理解，达到培养学员自己动手、分析解决实际问题的能力。
