@@ -10,8 +10,6 @@ from pathlib import Path
 
 from openpyxl import load_workbook
 
-from .data_io import parse_datetime
-
 MAX_POWER = 1000  # W
 
 
@@ -73,7 +71,9 @@ def JudgeWelecClash(
         tid = int(event[0])
         start = float(event[1])
         end = float(event[2])
-        power = powers.get(tid, 0)
+        if tid not in powers:
+            raise KeyError(f"Unknown task ID in planning events: {tid}")
+        power = powers[tid]
         intervals.append((start, end, power))
 
     if not intervals:
@@ -85,7 +85,9 @@ def JudgeWelecClash(
         events_list.append((start, power))
         events_list.append((end, -power))
 
-    events_list.sort(key=lambda x: x[0])
+    # End events must be applied before start events at the same timestamp so
+    # back-to-back tasks do not appear to overlap.
+    events_list.sort(key=lambda x: (x[0], x[1] > 0))
 
     current_power = 0
     for _, delta in events_list:

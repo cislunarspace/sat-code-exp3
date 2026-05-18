@@ -16,7 +16,6 @@ from pathlib import Path
 import numpy as np
 from openpyxl import load_workbook
 
-from .data_io import parse_datetime
 from .solar_angle import SolarAngleModel
 
 # 规划窗口：2021-10-02 00:00 到 2021-10-08 00:00

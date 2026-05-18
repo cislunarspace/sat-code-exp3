@@ -12,6 +12,10 @@
 
 > 详见 `data` 文件夹中的 `csv` 或 `xlsx` 文件。
 
+本项目以 `data/event.xlsx` 作为任务列表的可执行数据源；同目录下的
+`event.csv` 是该 Excel 数据的文本副本。若课程 PDF 中的表格与
+`event.xlsx` 存在个别差异，调度程序和报告均按 `event.xlsx` 计算。
+
 待安排空间站在轨任务列表（部分）：
 
 | ID | 任务时长 (min) | 电能 (W) | 最小阳光角 (deg) | 最大阳光角 (deg) | 优先级 |

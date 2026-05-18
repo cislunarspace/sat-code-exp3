@@ -14,8 +14,8 @@ from .solar_angle import SolarAngleModel
 def JudgeSolarClash(PlanningEvents: list[list[float]], solar_angle_path: Path | None = None) -> bool:
     """判断规划事件是否违反轨道阳光角约束。
 
-    PlanningEvents 沿用 MATLAB 版本的数据列约定：第 2、3 列为事件相对开始、
-    结束时间，第 4、5 列为该事件允许的最小和最大阳光角绝对值，时间单位为秒，
+    PlanningEvents 沿用任务表的数据列约定：第 2、3 列为事件相对开始、
+    结束时间，第 4、5 列为该事件允许的有符号最小和最大阳光角，时间单位为秒，
     角度单位为度。阳光角数据来自 CSV，经 ``SolarAngleModel`` 三次样条插值后
     进行约束判定。
 

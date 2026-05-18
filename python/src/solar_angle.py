@@ -97,9 +97,9 @@ class SolarAngleModel:
     ) -> bool:
         """判断任务时间区间 ``[start, end]`` 是否全程满足阳光角约束。
 
-        约束定义与 MATLAB 版本一致：
-        - ``min_angle == 0``：允许区间 ``[-max_angle, max_angle]``；
-        - ``min_angle != 0``：允许区间 ``[-max_angle, -min_angle] ∪ [min_angle, max_angle]``。
+        约束定义按任务表中的有符号上下界直接解释：
+        ``min_angle <= beta_angle <= max_angle``。例如 ``[-23, -1]``
+        只允许负阳光角，不能用正阳光角的绝对值替代。
 
         若区间任何部分超出采样范围，直接判定为不满足（返回 False）。
         """
@@ -113,12 +113,7 @@ class SolarAngleModel:
         if np.any(np.isnan(values)):
             return False
 
-        if min_angle == 0:
-            return bool(np.all((values >= -max_angle) & (values <= max_angle)))
-
-        neg_ok = (values >= -max_angle) & (values <= -min_angle)
-        pos_ok = (values >= min_angle) & (values <= max_angle)
-        return bool(np.all(neg_ok | pos_ok))
+        return bool(np.all((values >= min_angle) & (values <= max_angle)))
 
 
 def create_default_model() -> SolarAngleModel:
