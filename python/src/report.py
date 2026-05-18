@@ -18,7 +18,7 @@ from .solar_angle import BASE_TIME
 OUTPUT_DIR = Path(__file__).resolve().parents[2] / "output"
 
 # 中文字体配置（优先使用系统常见中文字体）
-plt.rcParams["font.sans-serif"] = ["Noto Sans CJK JP", "DejaVu Sans"]
+plt.rcParams["font.sans-serif"] = ["Microsoft YaHei", "SimHei", "DejaVu Sans"]
 plt.rcParams["axes.unicode_minus"] = False
 
 
