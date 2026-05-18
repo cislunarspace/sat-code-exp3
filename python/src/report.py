@@ -17,9 +17,20 @@ from .solar_angle import BASE_TIME
 
 OUTPUT_DIR = Path(__file__).resolve().parents[2] / "output"
 
-# 中文字体配置（优先使用系统常见中文字体）
+# ── 字体与字号配置（集中调节区） ──────────────────────────────
 plt.rcParams["font.sans-serif"] = ["Microsoft YaHei", "SimHei", "DejaVu Sans"]
 plt.rcParams["axes.unicode_minus"] = False
+plt.rcParams["font.size"] = 12
+plt.rcParams["axes.titlesize"] = 14
+plt.rcParams["axes.labelsize"] = 12
+plt.rcParams["legend.fontsize"] = 10
+plt.rcParams["xtick.labelsize"] = 10
+plt.rcParams["ytick.labelsize"] = 10
+
+# 甘特图局部字号
+GANTT_BAR_TEXT_SIZE = 6
+GANTT_YTICK_SIZE = 6
+# ───────────────────────────────────────────────────────────────
 
 
 def ensure_output_dir() -> Path:
@@ -126,10 +137,10 @@ def generate_timeline_chart(
         ax.barh(i, duration, left=start, height=0.6, color=color, edgecolor="black", linewidth=0.2)
         # 在任务条上标注 ID（如果条足够宽）
         if duration > 1.0:
-            ax.text(start + duration / 2, i, str(task.id), ha="center", va="center", fontsize=6, color="white")
+            ax.text(start + duration / 2, i, str(task.id), ha="center", va="center", fontsize=GANTT_BAR_TEXT_SIZE, color="white")
 
     ax.set_yticks(range(len(scheduled_tasks)))
-    ax.set_yticklabels([f"Task {t.id}" for t in scheduled_tasks], fontsize=6)
+    ax.set_yticklabels([f"Task {t.id}" for t in scheduled_tasks], fontsize=GANTT_YTICK_SIZE)
     ax.set_xlabel("时间（小时，自 2021-10-02 00:00 起）")
     ax.set_title("任务时间安排图")
     ax.grid(True, alpha=0.3, axis="x")
