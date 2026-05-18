@@ -50,15 +50,15 @@ def generate_schedule_table(
     scheduled_tasks.sort(key=lambda t: schedule[t.id])
 
     lines = ["| 任务ID | 开始时间(BJT) | 持续时间(min) | 优先级 | 功率(W) |", "|--------|---------------|---------------|--------|---------|"]
-    csv_lines = ["任务ID,开始时间(BJT),持续时间(min),优先级,功率(W)"]
+    csv_lines = ["开始时间(BJT),任务ID,持续时间(min),优先级"]
 
     for task in scheduled_tasks:
         start_str = format_bjt(schedule[task.id])
         line = f"| {task.id} | {start_str} | {task.duration // 60} | {task.priority} | {task.power} |"
         lines.append(line)
-        csv_lines.append(f"{task.id},{start_str},{task.duration // 60},{task.priority},{task.power}")
+        csv_lines.append(f"\t{start_str},{task.id},{task.duration // 60},{task.priority}")
 
-    output_path.write_text("\n".join(csv_lines), encoding="utf-8")
+    output_path.write_bytes(b"\xef\xbb\xbf" + "\n".join(csv_lines).encode("utf-8"))
     return "\n".join(lines)
 
 
