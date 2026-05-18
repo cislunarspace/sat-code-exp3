@@ -1,7 +1,15 @@
 [project]
 name = "planning"
 version = "0.1.0"
-description = "Add your description here"
+description = "航天任务规划实验"
 readme = "README.md"
 requires-python = ">=3.12"
-dependencies = ["openpyxl>=3.1.5"]
+dependencies = [
+    "openpyxl>=3.1.5",
+    "numpy>=2.0",
+    "scipy>=1.10",
+    "matplotlib>=3.8",
+]
+
+[dependency-groups]
+dev = ["pytest>=9.0"]

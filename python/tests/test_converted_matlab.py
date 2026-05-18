@@ -144,6 +144,37 @@ def test_judge_solar_clash_detects_angle_violation(tmp_path: Path) -> None:
     assert JudgeSolarClash([[1, 0, 28800, 0, 40]], solar_path) is False
 
 
+# 验证太阳角约束按有符号上下界解释，负区间不能由正角度满足。
+def test_judge_solar_clash_treats_signed_ranges_literally(tmp_path: Path) -> None:
+    solar_path = tmp_path / "solar.csv"
+    write_csv(
+        solar_path,
+        [
+            ["Time (LCLG)", "Beta Angle (deg)"],
+            ["2021/10/2 0:00", 10],
+            ["2021/10/2 8:00", 12],
+        ],
+    )
+
+    assert JudgeSolarClash([[1, 0, 28800, -20, -2]], solar_path) is True
+    assert JudgeSolarClash([[1, 0, 28800, 2, 20]], solar_path) is False
+
+
+# 验证负太阳角数据可以满足负向任务约束。
+def test_judge_solar_clash_accepts_negative_signed_ranges(tmp_path: Path) -> None:
+    solar_path = tmp_path / "solar.csv"
+    write_csv(
+        solar_path,
+        [
+            ["Time (LCLG)", "Beta Angle (deg)"],
+            ["2021/10/2 0:00", -12],
+            ["2021/10/2 8:00", -10],
+        ],
+    )
+
+    assert JudgeSolarClash([[1, 0, 28800, -20, -2]], solar_path) is False
+
+
 # 验证任务尾段超出太阳角数据覆盖范围时按冲突处理。
 def test_judge_solar_clash_detects_uncovered_event_tail(tmp_path: Path) -> None:
     solar_path = tmp_path / "solar.csv"
@@ -190,11 +221,47 @@ def test_read_planning_events_parses_csv(tmp_path: Path) -> None:
     assert result == [[1.0, 10.0, 20.0, 0.0, 23.0], [2.0, 30.0, 40.0, 5.0, 25.0]]
 
 
-# 验证未移植的测控约束算法会明确抛出未实现错误。
-def test_judge_welec_clash_is_explicitly_unimplemented() -> None:
+# 验证功率约束检查：单任务功率低于上限时不应冲突。
+def test_judge_welec_clash_no_conflict_for_low_power() -> None:
+    # Task 1 in event.xlsx has power 200W, well below 1000W
+    result = JudgeWelecClash([[1, 0, 3600]])
+    assert result is False
+
+
+# 验证功率约束检查：并发任务总功率超过 1000W 时应判定冲突。
+def test_judge_welec_clash_detects_power_overflow() -> None:
+    # Task 13 (800W) + Task 49 (800W) overlapping → 1600W > 1000W
+    result = JudgeWelecClash([
+        [13, 0, 3600],
+        [49, 0, 3600],
+    ])
+    assert result is True
+
+
+# 验证功率约束检查：并发任务总功率恰好等于上限时不应冲突。
+def test_judge_welec_clash_allows_exact_limit() -> None:
+    # Task 13 (800W) + Task 1 (200W) = 1000W exactly
+    result = JudgeWelecClash([
+        [13, 0, 3600],
+        [1, 0, 3600],
+    ])
+    assert result is False
+
+
+# 验证未知任务 ID 不能被当作 0W 静默通过。
+def test_judge_welec_clash_rejects_unknown_task_id() -> None:
     try:
-        JudgeWelecClash([[1, 0, 1]])
-    except NotImplementedError as exc:
-        assert "no algorithm" in str(exc)
+        JudgeWelecClash([[999, 0, 3600]])
+    except KeyError as exc:
+        assert "Unknown task ID" in str(exc)
     else:
-        raise AssertionError("JudgeWelecClash should raise NotImplementedError")
+        raise AssertionError("unknown task ID should raise KeyError")
+
+
+# 验证首尾相接的任务不会被错误地当作同时运行。
+def test_judge_welec_clash_allows_back_to_back_tasks_at_limit() -> None:
+    result = JudgeWelecClash([
+        [13, 0, 3600],
+        [49, 3600, 7200],
+    ])
+    assert result is False
