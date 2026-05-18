@@ -18,7 +18,7 @@ from .solar_angle import BASE_TIME
 OUTPUT_DIR = Path(__file__).resolve().parents[2] / "output"
 
 # ── 字体与字号配置（集中调节区） ──────────────────────────────
-plt.rcParams["font.sans-serif"] = ["Microsoft YaHei", "SimHei", "DejaVu Sans"]
+plt.rcParams["font.family"] = ["Times New Roman", "SimSun", "STSong"]
 plt.rcParams["axes.unicode_minus"] = False
 plt.rcParams["font.size"] = 12
 plt.rcParams["axes.titlesize"] = 14
