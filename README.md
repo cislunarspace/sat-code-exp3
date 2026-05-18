@@ -15,7 +15,6 @@ uv run python main.py  # 运行调度程序
 - `power_chart.png` — 功率需求变化图
 - `timeline_chart.png` — 任务时间安排图
 - `priority_chart.png` — 任务优先级安排图
-- `report.md` — 完整实验报告
 
 ## 项目结构
 
@@ -29,7 +28,7 @@ Planning/
 │   │   ├── scheduler.py   # 贪心调度核心（优先级降序 + 约束检查）
 │   │   ├── solar_angle.py # 三次样条阳光角插值模型
 │   │   ├── data_io.py     # CSV 数据读取与解析
-│   │   ├── report.py      # 图表与 Markdown 报告生成
+│   │   ├── plot.py        # 图表生成（功率图、时间安排图、优先级图）
 │   │   ├── JudgeAvoidAreaClash.py  # 地磁异常区约束验证
 │   │   ├── JudgeSolarClash.py      # 阳光角约束验证
 │   │   ├── JudgeWelecClash.py      # 功率约束验证
