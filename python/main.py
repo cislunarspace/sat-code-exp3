@@ -11,7 +11,7 @@ from __future__ import annotations
 
 from pathlib import Path
 
-from openpyxl import load_workbook
+import csv
 
 from src.JudgeAvoidAreaClash import JudgeAvoidAreaClash
 from src.JudgeSolarClash import JudgeSolarClash
@@ -25,22 +25,20 @@ ROOT_DIR = Path(__file__).resolve().parents[1]
 def read_planning_events(path: Path | None = None) -> list[list[float]]:
     """读取规划事件表并转换为约束检查所需的数值矩阵。
 
-    默认读取 `data/planningevents.xlsx`，也可以通过 `path` 指定其他 Excel 文件。
+    默认读取 `data/planningevents.csv`，也可以通过 `path` 指定其他 CSV 文件。
     表格第 1 行视为表头，从第 2 行开始读取；空行或首列为空的行会被跳过。
     每条事件只取前 5 列并转为 float，保持与 MATLAB 版本 PlanningEvents 矩阵一致。
     """
-    workbook_path = path or ROOT_DIR / "data" / "planningevents.xlsx"
-    workbook = load_workbook(workbook_path, data_only=True, read_only=True)
-    try:
-        sheet = workbook.active
+    csv_path = path or ROOT_DIR / "data" / "planningevents.csv"
+    with open(csv_path, newline="", encoding="utf-8-sig") as f:
+        reader = csv.reader(f)
         rows: list[list[float]] = []
-        for row in sheet.iter_rows(min_row=2, values_only=True):
-            if row is None or row[0] is None:
+        next(reader)  # skip header
+        for row in reader:
+            if not row or not row[0]:
                 continue
-            rows.append([float(value) for value in row[:5]])
+            rows.append([float(v) for v in row[:5]])
         return rows
-    finally:
-        workbook.close()
 
 
 def convert_schedule_to_events(schedule: dict[int, float], tasks: list[Task]) -> list[list[float]]:

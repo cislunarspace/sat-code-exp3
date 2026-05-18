@@ -174,28 +174,20 @@ def test_judge_solar_clash_detects_uncovered_event_head(tmp_path: Path) -> None:
     assert JudgeSolarClash([[1, 0, 4000, 0, 40]], solar_path) is True
 
 
-# 验证读取规划事件后会关闭 Excel workbook。
-def test_read_planning_events_closes_workbook(monkeypatch) -> None:
-    class FakeSheet:
-        def iter_rows(self, min_row: int, values_only: bool):
-            assert min_row == 2
-            assert values_only is True
-            return iter([(1, 2, 3, 4, 5)])
+# 验证读取规划事件 CSV 能正确解析数据并跳过表头。
+def test_read_planning_events_parses_csv(tmp_path: Path) -> None:
+    csv_path = tmp_path / "planningevents.csv"
+    write_csv(
+        csv_path,
+        [
+            ["事件ID", "StartTime", "EndTime", "MinAngle", "MaxAngle"],
+            [1, 10, 20, 0, 23],
+            [2, 30, 40, 5, 25],
+        ],
+    )
 
-    class FakeWorkbook:
-        active = FakeSheet()
-
-        def __init__(self) -> None:
-            self.is_closed = False
-
-        def close(self) -> None:
-            self.is_closed = True
-
-    fake_workbook = FakeWorkbook()
-    monkeypatch.setattr(planning_main, "load_workbook", lambda *args, **kwargs: fake_workbook)
-
-    assert planning_main.read_planning_events(Path("planningevents.xlsx")) == [[1.0, 2.0, 3.0, 4.0, 5.0]]
-    assert fake_workbook.is_closed is True
+    result = planning_main.read_planning_events(csv_path)
+    assert result == [[1.0, 10.0, 20.0, 0.0, 23.0], [2.0, 30.0, 40.0, 5.0, 25.0]]
 
 
 # 验证功率约束检查：单任务功率低于上限时不应冲突。
