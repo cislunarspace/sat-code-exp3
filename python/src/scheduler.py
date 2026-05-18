@@ -13,8 +13,9 @@ from __future__ import annotations
 from dataclasses import dataclass
 from pathlib import Path
 
+import csv
+
 import numpy as np
-from openpyxl import load_workbook
 
 from .solar_angle import SolarAngleModel
 
@@ -42,18 +43,18 @@ class Task:
 
 
 def read_tasks(path: Path | None = None) -> list[Task]:
-    """从 event.xlsx 读取任务列表。"""
+    """从 event.csv 读取任务列表。"""
     if path is None:
         from .data_io import ROOT_DIR
 
-        path = ROOT_DIR / "data" / "event.xlsx"
+        path = ROOT_DIR / "data" / "event.csv"
 
-    workbook = load_workbook(path, data_only=True, read_only=True)
-    try:
-        sheet = workbook.active
+    with open(path, newline="", encoding="utf-8-sig") as f:
+        reader = csv.reader(f)
+        next(reader)  # skip header
         tasks: list[Task] = []
-        for row in sheet.iter_rows(min_row=2, values_only=True):
-            if row is None or row[0] is None:
+        for row in reader:
+            if not row or not row[0]:
                 continue
             tid, dur, power, min_a, max_a, prio = row[:6]
             tasks.append(
@@ -67,8 +68,6 @@ def read_tasks(path: Path | None = None) -> list[Task]:
                 )
             )
         return tasks
-    finally:
-        workbook.close()
 
 
 def read_anomaly_windows(path: Path | None = None) -> list[tuple[float, float]]:
@@ -111,7 +110,7 @@ def schedule_tasks(
     Parameters
     ----------
     tasks :
-        任务列表，默认从 ``data/event.xlsx`` 读取。
+        任务列表，默认从 ``data/event.csv`` 读取。
     solar_model :
         阳光角插值模型，默认新建。
     anomaly_windows :
