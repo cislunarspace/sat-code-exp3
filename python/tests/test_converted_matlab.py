@@ -198,11 +198,28 @@ def test_read_planning_events_closes_workbook(monkeypatch) -> None:
     assert fake_workbook.is_closed is True
 
 
-# 验证未移植的测控约束算法会明确抛出未实现错误。
-def test_judge_welec_clash_is_explicitly_unimplemented() -> None:
-    try:
-        JudgeWelecClash([[1, 0, 1]])
-    except NotImplementedError as exc:
-        assert "no algorithm" in str(exc)
-    else:
-        raise AssertionError("JudgeWelecClash should raise NotImplementedError")
+# 验证功率约束检查：单任务功率低于上限时不应冲突。
+def test_judge_welec_clash_no_conflict_for_low_power() -> None:
+    # Task 1 in event.xlsx has power 200W, well below 1000W
+    result = JudgeWelecClash([[1, 0, 3600]])
+    assert result is False
+
+
+# 验证功率约束检查：并发任务总功率超过 1000W 时应判定冲突。
+def test_judge_welec_clash_detects_power_overflow() -> None:
+    # Task 13 (800W) + Task 49 (800W) overlapping → 1600W > 1000W
+    result = JudgeWelecClash([
+        [13, 0, 3600],
+        [49, 0, 3600],
+    ])
+    assert result is True
+
+
+# 验证功率约束检查：并发任务总功率恰好等于上限时不应冲突。
+def test_judge_welec_clash_allows_exact_limit() -> None:
+    # Task 13 (800W) + Task 1 (200W) = 1000W exactly
+    result = JudgeWelecClash([
+        [13, 0, 3600],
+        [1, 0, 3600],
+    ])
+    assert result is False

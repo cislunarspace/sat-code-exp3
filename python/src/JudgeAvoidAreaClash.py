@@ -29,6 +29,6 @@ def JudgeAvoidAreaClash(PlanningEvents: list[list[float]], avoid_area_path: Path
                 continue
             overlap_start = max(start_time, window_start)
             overlap_end = min(end_time, window_end)
-            if overlap_start <= overlap_end:
+            if overlap_start < overlap_end:
                 return True
     return False
